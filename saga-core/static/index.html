@@ -4,108 +4,198 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Saga | Hearthkeeper</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.3.0/marked.min.js"></script>
     <style>
-        body { background-color: #121212; color: #d1d5db; font-family: 'Georgia', serif; }
-        .chat-box { height: 70vh; scrollbar-width: thin; scrollbar-color: #4a5568 #1a202c; }
-        .saga-msg { border-left: 3px solid #f6ad55; background: rgba(45, 55, 72, 0.4); }
-        .user-msg { background: rgba(74, 85, 104, 0.2); border-left: 3px solid #4a5568; }
-        .markdown-content p { margin-bottom: 0.5rem; }
-        @keyframes glow { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-        .thinking { animation: glow 1.5s infinite; color: #f6ad55; font-style: italic; }
+        body {
+            background: #0f0f12;
+            color: #d1d1e0;
+            font-family: 'Courier New', Courier, monospace;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        #terminal {
+            width: 100%;
+            max-width: 800px;
+            display: flex;
+            flex-direction: column;
+            border-left: 1px solid #333;
+            border-right: 1px solid #333;
+            background: #121217;
+        }
+
+        #chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .message {
+            max-width: 90%;
+            padding: 5px 10px;
+            white-space: pre-wrap;
+        }
+
+        .user {
+            color: #7aa2f7;
+            align-self: flex-start;
+        }
+        .user::before { content: "> jschreck: "; font-weight: bold; }
+
+        .assistant {
+            color: #e0af68;
+            align-self: flex-start;
+            border-left: 2px solid #444;
+            padding-left: 15px;
+        }
+        .assistant::before { content: "Saga: "; font-weight: bold; color: #bb9af7; }
+
+        /* Thinking Indicator */
+        #thinking {
+            display: none;
+            color: #565f89;
+            font-style: italic;
+            padding: 10px 20px;
+        }
+
+        #input-area {
+            padding: 20px;
+            border-top: 1px solid #333;
+            display: flex;
+            background: #0f0f12;
+        }
+
+        input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: #7aa2f7;
+            font-family: inherit;
+            font-size: 1.1em;
+            outline: none;
+        }
+
+        /* The Gold Consensus Box */
+        #consensus-box {
+            background: #2e2a1e;
+            border: 1px solid #e0af68;
+            padding: 15px;
+            margin: 10px 20px;
+            display: none;
+            text-align: center;
+        }
+
+        .scribe-btn {
+            background: #e0af68;
+            color: #000;
+            border: none;
+            padding: 5px 15px;
+            margin: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
     </style>
 </head>
-<body class="flex flex-col items-center min-h-screen p-4">
-    <header class="w-full max-w-3xl mb-6 flex justify-between items-end border-b border-orange-900/30 pb-4">
-        <div>
-            <h1 class="text-3xl font-light tracking-widest text-orange-400 uppercase">Saga</h1>
-            <p class="text-sm italic text-gray-500">The hearth is lit. I am listening.</p>
-        </div>
-        <div class="text-xs text-gray-600 font-mono">CORE_V1.0</div>
-    </header>
+<body>
 
-    <div id="chat-container" class="chat-box w-full max-w-3xl overflow-y-auto space-y-6 p-6 rounded-lg bg-black/20 shadow-inner">
-        <div class="p-4 rounded saga-msg">
-            <strong class="text-xs uppercase tracking-widest text-orange-400">Saga</strong> 
-            <div class="markdown-content mt-2 italic">The embers are warm. What stories or questions have you brought to the hearth today?</div>
+    <div id="terminal">
+        <div id="chat-container">
+            <div class="message assistant">The fire crackles. The stones are ready for your words.</div>
         </div>
-    </div>
 
-    <div class="w-full max-w-3xl mt-6 flex gap-3">
-        <input type="text" id="userInput" autocomplete="off" placeholder="Speak your thoughts and prayers." 
-               class="flex-1 p-4 rounded-md bg-gray-800/50 border border-gray-700 focus:outline-none focus:border-orange-500 transition-colors">
-        <button id="sendBtn" onclick="sendMessage()" class="bg-orange-700 hover:bg-orange-600 text-white px-8 py-2 rounded-md font-medium transition-all shadow-lg">
-            Send
-        </button>
+        <div id="thinking">Saga is casting the runes...</div>
+
+        <div id="consensus-box">
+            <div id="consensus-text">Shall I scribe this tradition to the hearth?</div>
+            <button class="scribe-btn" onclick="confirmConsensus(true)">SCRIBE</button>
+            <button class="scribe-btn" style="background:#444; color:#ccc" onclick="confirmConsensus(false)">DISMISS</button>
+        </div>
+
+        <div id="input-area">
+            <span>> </span>
+            <input type="text" id="user-input" autofocus onkeypress="if(event.key === 'Enter') sendMessage()">
+        </div>
     </div>
 
     <script>
         const chatContainer = document.getElementById('chat-container');
-        const userInput = document.getElementById('userInput');
+        const thinkingIndicator = document.getElementById('thinking');
+        const consensusBox = document.getElementById('consensus-box');
+        let pendingText = "";
+
+        function appendMessage(role, text) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `message ${role}`;
+            msgDiv.innerText = text;
+            chatContainer.appendChild(msgDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
 
         async function sendMessage() {
-            const text = userInput.value.trim();
+            const input = document.getElementById('user-input');
+            const text = input.value.trim();
             if (!text) return;
 
-            // 1. Display User Message
-            appendMessage('You', text, 'user-msg');
-            userInput.value = '';
-
-            // 2. Create Thinking Indicator
-            const thinkingDiv = document.createElement('div');
-            thinkingDiv.id = 'thinking';
-            thinkingDiv.className = 'thinking px-4 text-sm';
-            thinkingDiv.innerText = 'Saga is reflecting...';
-            chatContainer.appendChild(thinkingDiv);
-            chatContainer.scrollTop = chatContainer.scrollHeight;
+            appendMessage('user', text);
+            input.value = '';
+            consensusBox.style.display = 'none';
+            
+            // Show thinking
+            thinkingIndicator.style.display = 'block';
 
             try {
-                // 3. Contact the Saga-Core API
                 const response = await fetch('/api/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    // Matching your saga_server.py expected format
-                    body: JSON.stringify({ 
-                        messages: [{ role: "user", content: text }] 
-                    })
+                    body: JSON.stringify({ messages: [{ role: 'user', content: text }] })
                 });
-
-                if (!response.ok) throw new Error(`Server status: ${response.status}`);
 
                 const data = await response.json();
                 
-                // 4. Remove Thinking and Append Saga's Wisdom
-                document.getElementById('thinking').remove();
-                
-                // data.message.content matches your Python return: {"message": {"content": reply}}
-                const sagaReply = data.message?.content || "The hearth remains silent.";
-                appendMessage('Saga', sagaReply, 'saga-msg');
+                // Hide thinking
+                thinkingIndicator.style.display = 'none';
+
+                if (data.message && data.message.content) {
+                    appendMessage('assistant', data.message.content);
+                }
+
+                if (data.intent === "PENDING_CONSENSUS") {
+                    pendingText = text;
+                    consensusBox.style.display = 'block';
+                }
 
             } catch (err) {
-                console.error("Hearth Error:", err);
-                if(document.getElementById('thinking')) document.getElementById('thinking').remove();
-                appendMessage('System', 'The connection to the hearth has been severed. Check the logs.', 'text-red-900 border-red-900 border');
+                thinkingIndicator.style.display = 'none';
+                appendMessage('assistant', "The connection to the hearth has gone cold.");
             }
         }
 
-        function appendMessage(sender, text, style) {
-            const msg = document.createElement('div');
-            msg.className = `p-4 rounded transition-all ${style}`;
-            
-            // Render Markdown for better storytelling/formatting
-            const htmlContent = marked.parse(text);
-            
-            msg.innerHTML = `<strong class="text-xs uppercase tracking-widest ${sender === 'Saga' ? 'text-orange-400' : 'text-gray-400'}">${sender}</strong> 
-                             <div class="markdown-content mt-2">${htmlContent}</div>`;
-            chatContainer.appendChild(msg);
-            chatContainer.scrollTop = chatContainer.scrollHeight;
-        }
+async function confirmConsensus(shouldSave) {
+    consensusBox.style.display = 'none';
+    
+    if (shouldSave) {
+        try {
+            const response = await fetch('/api/save-consensus', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: pendingText })
+            });
 
-        // Allow Enter key to send
-        userInput.addEventListener('keypress', (e) => { 
-            if (e.key === 'Enter') sendMessage(); 
-        });
+            if (response.ok) {
+                appendMessage('assistant', `*It is done. "${pendingText}" is etched into the stone.*`);
+            } else {
+                appendMessage('assistant', "*The ink has run dry... (Error saving memory)*");
+            }
+        } catch (err) {
+            appendMessage('assistant', "*The connection to the archive is broken.*");
+        }
+    }
+    pendingText = "";
+}
     </script>
 </body>
 </html>
