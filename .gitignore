@@ -221,3 +221,5 @@ saga-core/memory/**
 *.pyc
 .DS_Store
 
+*.tar.gz
+*.tar.gz
