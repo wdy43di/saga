@@ -121,81 +121,100 @@
         </div>
     </div>
 
-    <script>
-        const chatContainer = document.getElementById('chat-container');
-        const thinkingIndicator = document.getElementById('thinking');
-        const consensusBox = document.getElementById('consensus-box');
-        let pendingText = "";
-
-        function appendMessage(role, text) {
-            const msgDiv = document.createElement('div');
-            msgDiv.className = `message ${role}`;
-            msgDiv.innerText = text;
-            chatContainer.appendChild(msgDiv);
-            chatContainer.scrollTop = chatContainer.scrollHeight;
-        }
-
-        async function sendMessage() {
-            const input = document.getElementById('user-input');
-            const text = input.value.trim();
-            if (!text) return;
-
-            appendMessage('user', text);
-            input.value = '';
-            consensusBox.style.display = 'none';
-            
-            // Show thinking
-            thinkingIndicator.style.display = 'block';
-
-            try {
-                const response = await fetch('/api/chat', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ messages: [{ role: 'user', content: text }] })
-                });
-
-                const data = await response.json();
-                
-                // Hide thinking
-                thinkingIndicator.style.display = 'none';
-
-                if (data.message && data.message.content) {
-                    appendMessage('assistant', data.message.content);
-                }
-
-                if (data.intent === "PENDING_CONSENSUS") {
-                    pendingText = text;
-                    consensusBox.style.display = 'block';
-                }
-
-            } catch (err) {
-                thinkingIndicator.style.display = 'none';
-                appendMessage('assistant', "The connection to the hearth has gone cold.");
-            }
-        }
-
-async function confirmConsensus(shouldSave) {
-    consensusBox.style.display = 'none';
+<script>
+    const chatContainer = document.getElementById('chat-container');
+    const thinkingIndicator = document.getElementById('thinking');
+    const consensusBox = document.getElementById('consensus-box');
+    const consensusText = document.getElementById('consensus-text');
     
-    if (shouldSave) {
+    let pendingText = "";
+    let currentIntent = ""; // Track if we are scribing Consensus or a New Project
+
+    function appendMessage(role, text) {
+        const msgDiv = document.createElement('div');
+        msgDiv.className = `message ${role}`;
+        msgDiv.innerText = text;
+        chatContainer.appendChild(msgDiv);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    async function sendMessage() {
+        const input = document.getElementById('user-input');
+        const text = input.value.trim();
+        if (!text) return;
+
+        appendMessage('user', text);
+        input.value = '';
+        consensusBox.style.display = 'none';
+        thinkingIndicator.style.display = 'block';
+
         try {
-            const response = await fetch('/api/save-consensus', {
+            const response = await fetch('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text: pendingText })
+                body: JSON.stringify({ messages: [{ role: 'user', content: text }] })
+            });
+
+            const data = await response.json();
+            thinkingIndicator.style.display = 'none';
+
+            if (data.message && data.message.content) {
+                appendMessage('assistant', data.message.content);
+            }
+
+            // --- Handle Intent Logic ---
+            if (data.intent === "PENDING_CONSENSUS") {
+                currentIntent = "CONSENSUS";
+                pendingText = text;
+                consensusText.innerText = "Shall I scribe this tradition to the hearth?";
+                consensusBox.style.display = 'block';
+            } 
+            else if (data.intent === "NEW_PROJECT_SUGGESTION") {
+                currentIntent = "NEW_PROJECT";
+                pendingText = data.suggested_project;
+                consensusText.innerText = `I sense a new saga beginning: "${pendingText}". Shall I found a new project scroll?`;
+                consensusBox.style.display = 'block';
+            }
+
+        } catch (err) {
+            thinkingIndicator.style.display = 'none';
+            appendMessage('assistant', "The connection to the hearth has gone cold.");
+        }
+    }
+
+    async function confirmConsensus(shouldSave) {
+        consensusBox.style.display = 'none';
+        if (!shouldSave) {
+            pendingText = "";
+            currentIntent = "";
+            return;
+        }
+
+        let endpoint = currentIntent === "NEW_PROJECT" ? '/api/create-project' : '/api/save-consensus';
+        let payload = currentIntent === "NEW_PROJECT" ? { name: pendingText } : { text: pendingText };
+
+        try {
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
             });
 
             if (response.ok) {
-                appendMessage('assistant', `*It is done. "${pendingText}" is etched into the stone.*`);
+                let confirmation = currentIntent === "NEW_PROJECT" 
+                    ? `*A new scroll has been prepared for the "${pendingText}" project.*`
+                    : `*It is done. "${pendingText}" is etched into the stone.*`;
+                appendMessage('assistant', confirmation);
             } else {
-                appendMessage('assistant', "*The ink has run dry... (Error saving memory)*");
+                appendMessage('assistant', "*The ink has run dry... (Error saving)*");
             }
         } catch (err) {
             appendMessage('assistant', "*The connection to the archive is broken.*");
         }
+        
+        pendingText = "";
+        currentIntent = "";
     }
-    pendingText = "";
-}
-    </script>
+</script>
 </body>
 </html>

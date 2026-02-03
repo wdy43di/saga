@@ -11,6 +11,7 @@ services:
     environment:
       - OLLAMA_URL=http://saga-ollama:11434
       - SAGA_MODEL=llama3:latest
+      - PYTHONUNBUFFERED=1
     # VOLUMES: This is the magic. 
     # It maps your local folders to the paths the Python script expects.
     volumes:

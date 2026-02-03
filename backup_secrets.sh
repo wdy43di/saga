@@ -2,7 +2,7 @@
 # backup_secrets.sh — Zips up private Saga data for safe keeping
 
 TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
-BACKUP_NAME="saga_secrets_$TIMESTAMP.tar.gz"
+BACKUP_NAME="./secrets/saga_secrets_$TIMESTAMP.tar.gz"
 
 echo "📦 Packing up the hearth's secrets..."
 
