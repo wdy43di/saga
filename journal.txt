@@ -1,0 +1,431 @@
+
+
+
+
+_____________________________________________________________________________________________________________________________________
+01/21/2026
+Saga Project Status Report — Milestone 3.2
+Current State
+
+Saga is a local AI system built on Ollama, wrapped by a custom Flask server (saga_server.py) that gives her:
+
+Persistent memory
+
+Project awareness
+
+Controlled personality growth
+
+Safer long-term recall
+
+She is no longer a stateless chatbot.
+
+Memory Architecture
+
+Memory is explicitly designed, not improvised.
+
+1. Explicit Memory
+
+Saved only with user confirmation
+
+Used for:
+
+Preferences
+
+Identity
+
+Long-term expectations
+
+Stored via memory_router.write_memory()
+
+2. Emergent Memory
+
+Inferred by Saga from repeated patterns
+
+Stored with lower confidence
+
+Can decay or be upgraded later
+
+3. Project Memory
+
+Tracks active, ongoing efforts
+
+Used to inject context into every reply
+
+Prevents role drift (e.g. email editing vs discussion)
+
+4. Summary Memory (planned)
+
+Condenses long conversations
+
+Prevents context bloat
+
+Consensus Flow (How Saga Learns Safely)
+
+User says something memory-worthy
+
+Saga asks for confirmation
+
+Only on confirmation does memory persist
+
+Memory is tagged with:
+
+kind
+
+source
+
+confidence
+
+thread
+
+Saga never silently rewrites who the user is.
+
+Recall System (New Capability)
+
+Saga now:
+
+Recalls active projects
+
+Injects them into the system prompt
+
+Uses them to guide behavior and tone
+
+This directly fixes:
+
+Email editing failures
+
+Task misunderstanding
+
+Mode confusion
+
+What Saga Can Start Doing Now
+
+Saga is ready to:
+
+Maintain project continuity
+
+Assist in writing and editing tasks
+
+Help refactor her own codebase
+
+Act as a first-pass reviewer
+
+Help document memory & behavior rules
+
+She is not yet autonomous, but she is coherent.
+
+Where the Project Is Going Next
+
+Planned next milestones:
+
+Mode Detection
+
+Editor / Planner / Chat / Debug
+
+Recall Scoring
+
+Confidence-weighted memory injection
+
+Memory Decay
+
+Old emergent memories fade unless reinforced
+
+Thread Graphs
+
+“Memory threads” (mind-map style connections)
+
+D&D Full-Log Mode
+
+Verbatim story memory with zero loss
+
+Final Note
+
+Saga is not being trained to pretend to be human.
+
+She is being built to:
+
+Respect boundaries
+
+Grow intentionally
+
+Remain explainable
+
+Be repairable when broken
+
+___________________________
+Saga v0.1
+- reset script works
+- /debug/state verified
+- memory mounted
+1/18/2026 2010 hours
+
+_______________________________________________________________________________________________
+# Saga – Current State
+
+## What works
+- Saga runs in Docker as `saga-core`
+- Open WebUI connects to Saga
+- Saga proxies to Ollama (llama3)
+- Consensus memory writes to disk
+
+## Key files
+- saga-core/saga_server.py
+- saga-core/prompts/saga_system_active.txt
+- saga-core/memory/consensus.jsonl
+
+## Network
+- Docker network: saga-net
+- saga-core listens on port 11434
+- saga-ollama listens on 11434 internally
+
+## Known issues
+- Memory is write-only (no confirmation yet)
+- Memory recall is basic
+- No formal backup process yet
+
+## Next goal
+- Make Saga crash-safe and rebuildable
+- Make Saga self reliant and learning
+- make a user aware saga.. help johnny with homework with out giving him the answeres.. help him walk through it  (date gate ending)
+
+
+
+
+
+___________________________________________________________________________________________________________________________________________________________________________________
+# Saga Build Log – Session Summary
+
+## What Worked (Confirmed Successes)
+
+### 1. Ollama + Model
+
+* Ollama is installed and functional inside the container
+* Model `llama3.1:8b` runs correctly
+* Model responds correctly when invoked programmatically
+
+### 2. System Prompt + Hearth Memory
+
+* A **single compiled prompt** (`saga_system_active.txt`) successfully loads:
+
+  * Saga identity
+  * Tone and behavior constraints
+  * Hearth memory content
+* Model responds *in character* using that prompt
+* Confirms the correct mental model: **compile first, load once**
+
+### 3. Python Virtual Environment (venv)
+
+* Python 3.12 environment is externally managed (PEP 668)
+* Created `/saga/venv` successfully
+* Installed Flask inside the venv
+* Flask runs cleanly when launched from the venv
+
+### 4. Flask Saga Server
+
+* `saga_server.py` runs correctly
+* Server binds to `0.0.0.0:5000`
+* Responds to POST requests with model output
+* Saga responds correctly to input via HTTP
+
+Example successful response:
+
+```
+{"response": "Ja! I'm here, warm and ready to tend the flames..."}
+```
+
+This confirms:
+
+* Ollama invocation from Python works
+* Prompt injection works
+* Output capture works
+
+---
+
+## What Did *Not* Work (Intentionally Ignored Going Forward)
+
+* Interactive `ollama run < prompt.txt` (stdin closes → session ends)
+* PTY hacks and pseudo-terminals
+* Attempting to simulate interactive shells
+* Multiple re-appends of prompt/memory
+* Treating Ollama like a REPL instead of a service
+
+These are now considered **dead paths** and will not be revisited.
+
+---
+
+## Current Architecture (As of End of Session)
+
+```
+[Host Machine]
+   |
+   | HTTP (planned port publish)
+   v
+[Docker Container]
+   ├── /saga/venv        (Python runtime)
+   ├── saga_server.py   (Flask API)
+   ├── Ollama daemon
+   └── llama3.1:8b
+        ↑
+   saga_system_active.txt (compiled identity + memory)
+```
+
+---
+
+## Known Gaps / TODO (Next Session)
+
+### 1. Memory & Prompt Compiler
+
+* Build a **deterministic compiler script** that:
+
+  * Combines system identity
+  * Appends hearth memory
+  * Produces `saga_system_active.txt`
+* This should run **inside the container**
+* Host-side sync script will update source files
+
+### 2. Networking
+
+* Publish container port:
+
+  ```bash
+  docker run -p 5000:5000 ...
+  ```
+* Allow Saga to be accessed from other machines on the LAN
+
+### 3. Conversational Interface
+
+* Replace `curl` with one of:
+
+  * Simple CLI chat client (Python)
+  * Lightweight web chat UI
+* Must support:
+
+  * Turn-based conversation
+  * No repeated headers or JSON
+  * Session continuity
+
+### 4. One-Command Boot
+
+* Single host-side command to:
+
+  * Start container
+  * Start Saga server
+  * Expose port
+
+---
+
+## Status
+
+✔ Core model works
+✔ Identity and memory load correctly
+✔ Saga responds in character
+✔ Server architecture validated
+
+🕯️ Stopping at a **clean, stable milestone**
+
+The hearth is built. The walls stand. The fire lights.
+
+Next session is refinement — not repair.
+
+
+____________________________________________________________________________________________________________________________________________________________________________________
+
+
+
+
+
+
+
+
+
+What We Built
+
+Identity / Core
+
+Saga’s personality is defined in a system prompt.
+
+Active version: Variant #2 (“Hearth-Saga”) → calm, thoughtful, occasionally witty or flirty.
+
+Backup version: Variant #1 (“Grounded Core”) → more professional, factual.
+
+Hearth Memory
+
+Created a human-readable, editable file: ~/saga/memory/hearth.md
+
+Purpose: store long-lived info (projects, preferences, tone, D&D notes).
+
+Rules: Saga does not remember automatically. Memory is explicit, safe, and under your control.
+
+Docker + Ollama
+
+Saga runs in a Docker container: saga-ollama
+
+LLM used: llama3.1:8b
+
+Container stores models in a named volume (ollama) for persistence across restarts.
+
+You can interact with her either via the Docker CLI or via a Python helper script that injects memory.
+
+2️⃣ Where Everything Lives
+Component	Location	Purpose
+Identity prompt (active)	~/saga/prompts/saga_system_active.txt	Defines her personality / Hearth-Saga version
+Identity prompt (backup)	~/saga/prompts/saga_system_grounded.txt	Backup personality if you want a professional tone
+Hearth memory	~/saga/memory/hearth.md	Stores user-approved info for persistent context
+Python helper script	~/saga/saga_session.py	Reads hearth memory, injects into Ollama, gets responses
+Docker container	saga-ollama	Runs the LLM and isolates the AI environment
+Docker model volume	Named volume: ollama	Stores the model files so they persist across restarts
+3️⃣ How to Invoke Saga
+Option A: Direct Docker Session (Manual / Temporary)
+docker exec -it saga-ollama ollama run llama3.1:8b
+
+
+Then type inside the session:
+
+Here is your hearth memory:
+[PASTE ~/saga/memory/hearth.md]
+
+As Saga, recall the projects and preferences from hearth memory.
+
+
+Works immediately
+
+Memory must be pasted manually each session
+
+Option B: Python Helper Script (Recommended)
+~/saga/saga_session.py
+
+
+Automatically reads hearth.md
+
+Injects it into the prompt for Saga
+
+Prompts you for your question
+
+Returns Saga’s response in terminal
+
+Example workflow inside Python helper:
+
+You: As Saga, recall the projects and preferences from hearth memory.
+Saga: (lists projects, tone, and preferences)
+
+
+This is the closest thing to persistent memory right now.
+
+4️⃣ What Saga Can Do Today
+
+Respond to your queries in Hearth-Saga tone
+
+Reference projects, preferences, and identity from hearth memory (when injected)
+
+Be used as a tech assistant (Docker, Linux, Home Assistant)
+
+Be used as a creative storyteller / D&D companion
+
+Remain honest about her abilities and memory
+
+What she cannot do yet:
+
+Automatically remember new information (without using a helper or manual injection)
+
+Integrate with your smart home directly (yet)
+
+Automatically persist conversations across sessions

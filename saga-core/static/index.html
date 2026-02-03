@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saga | Hearthkeeper</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.3.0/marked.min.js"></script>
+    <style>
+        body { background-color: #121212; color: #d1d5db; font-family: 'Georgia', serif; }
+        .chat-box { height: 70vh; scrollbar-width: thin; scrollbar-color: #4a5568 #1a202c; }
+        .saga-msg { border-left: 3px solid #f6ad55; background: rgba(45, 55, 72, 0.4); }
+        .user-msg { background: rgba(74, 85, 104, 0.2); border-left: 3px solid #4a5568; }
+        .markdown-content p { margin-bottom: 0.5rem; }
+        @keyframes glow { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .thinking { animation: glow 1.5s infinite; color: #f6ad55; font-style: italic; }
+    </style>
+</head>
+<body class="flex flex-col items-center min-h-screen p-4">
+    <header class="w-full max-w-3xl mb-6 flex justify-between items-end border-b border-orange-900/30 pb-4">
+        <div>
+            <h1 class="text-3xl font-light tracking-widest text-orange-400 uppercase">Saga</h1>
+            <p class="text-sm italic text-gray-500">The hearth is lit. I am listening.</p>
+        </div>
+        <div class="text-xs text-gray-600 font-mono">CORE_V1.0</div>
+    </header>
+
+    <div id="chat-container" class="chat-box w-full max-w-3xl overflow-y-auto space-y-6 p-6 rounded-lg bg-black/20 shadow-inner">
+        <div class="p-4 rounded saga-msg">
+            <strong class="text-xs uppercase tracking-widest text-orange-400">Saga</strong> 
+            <div class="markdown-content mt-2 italic">The embers are warm. What stories or questions have you brought to the hearth today?</div>
+        </div>
+    </div>
+
+    <div class="w-full max-w-3xl mt-6 flex gap-3">
+        <input type="text" id="userInput" autocomplete="off" placeholder="Speak your thoughts and prayers." 
+               class="flex-1 p-4 rounded-md bg-gray-800/50 border border-gray-700 focus:outline-none focus:border-orange-500 transition-colors">
+        <button id="sendBtn" onclick="sendMessage()" class="bg-orange-700 hover:bg-orange-600 text-white px-8 py-2 rounded-md font-medium transition-all shadow-lg">
+            Send
+        </button>
+    </div>
+
+    <script>
+        const chatContainer = document.getElementById('chat-container');
+        const userInput = document.getElementById('userInput');
+
+        async function sendMessage() {
+            const text = userInput.value.trim();
+            if (!text) return;
+
+            // 1. Display User Message
+            appendMessage('You', text, 'user-msg');
+            userInput.value = '';
+
+            // 2. Create Thinking Indicator
+            const thinkingDiv = document.createElement('div');
+            thinkingDiv.id = 'thinking';
+            thinkingDiv.className = 'thinking px-4 text-sm';
+            thinkingDiv.innerText = 'Saga is reflecting...';
+            chatContainer.appendChild(thinkingDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+
+            try {
+                // 3. Contact the Saga-Core API
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    // Matching your saga_server.py expected format
+                    body: JSON.stringify({ 
+                        messages: [{ role: "user", content: text }] 
+                    })
+                });
+
+                if (!response.ok) throw new Error(`Server status: ${response.status}`);
+
+                const data = await response.json();
+                
+                // 4. Remove Thinking and Append Saga's Wisdom
+                document.getElementById('thinking').remove();
+                
+                // data.message.content matches your Python return: {"message": {"content": reply}}
+                const sagaReply = data.message?.content || "The hearth remains silent.";
+                appendMessage('Saga', sagaReply, 'saga-msg');
+
+            } catch (err) {
+                console.error("Hearth Error:", err);
+                if(document.getElementById('thinking')) document.getElementById('thinking').remove();
+                appendMessage('System', 'The connection to the hearth has been severed. Check the logs.', 'text-red-900 border-red-900 border');
+            }
+        }
+
+        function appendMessage(sender, text, style) {
+            const msg = document.createElement('div');
+            msg.className = `p-4 rounded transition-all ${style}`;
+            
+            // Render Markdown for better storytelling/formatting
+            const htmlContent = marked.parse(text);
+            
+            msg.innerHTML = `<strong class="text-xs uppercase tracking-widest ${sender === 'Saga' ? 'text-orange-400' : 'text-gray-400'}">${sender}</strong> 
+                             <div class="markdown-content mt-2">${htmlContent}</div>`;
+            chatContainer.appendChild(msg);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        // Allow Enter key to send
+        userInput.addEventListener('keypress', (e) => { 
+            if (e.key === 'Enter') sendMessage(); 
+        });
+    </script>
+</body>
+</html>

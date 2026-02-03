@@ -1,0 +1,30 @@
+services:
+  saga-core:
+    build:
+      context: ../saga-core
+      dockerfile: Dockerfile
+    image: docker-saga-core
+    container_name: saga-core
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - OLLAMA_URL=http://saga-ollama:11434
+      - SAGA_MODEL=llama3:latest
+    # VOLUMES: This is the magic. 
+    # It maps your local folders to the paths the Python script expects.
+    volumes:
+      - ../saga-core/prompts:/saga/prompts      # Maps persona text
+      - ../saga-core/static:/app/static         # Maps the Web UI files
+      - ../saga-core/saga_server.py:/app/saga_server.py # Maps the code itself
+    depends_on:
+      - saga-ollama
+
+  saga-ollama:
+    image: ollama/ollama:latest
+    container_name: saga-ollama
+    restart: unless-stopped
+    # PERSISTENCE: This ensures that when you download Llama3, 
+    # it stays on your hard drive even if the container stops.
+    volumes:
+      - ../ollama/models:/root/.ollama

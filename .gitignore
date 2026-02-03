@@ -205,3 +205,20 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+=======
+# --- Ignore the Big Stuff ---
+ollama/models/
+# Ignore your private SSH keys!
+ollama/id_ed25519*
+
+# --- Ignore the Private Stuff ---
+# This ignores EVERYTHING inside the memory folder and subfolders
+saga-core/memory/**
+# This ignores the specific active prompt
+# Ignore your personal journal
+
+# --- Ignore Python/OS Junk ---
+**/__pycache__/
+*.pyc
+.DS_Store
+
