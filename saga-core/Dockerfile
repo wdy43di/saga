@@ -9,7 +9,8 @@ RUN pip install --no-cache-dir flask requests nltk
 
 # Explicitly download all required grammar components to the correct path
 RUN python -m nltk.downloader -d /usr/local/share/nltk_data punkt punkt_tab averaged_perceptron_tagger averaged_perceptron_tagger_eng
-
+# Installing RAG
+RUN pip install --no-cache-dir flask requests nltk pypdf
 # We create the directories, but we WON'T copy the files yet
 # We want the volumes in docker-compose to handle the "live" code
 RUN mkdir -p /saga/prompts /saga/memory /app/static

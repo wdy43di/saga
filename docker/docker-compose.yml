@@ -11,14 +11,12 @@ services:
     environment:
       - OLLAMA_URL=http://saga-ollama:11434
       - SAGA_MODEL=llama3:latest
-      - PYTHONUNBUFFERED=1
-    # VOLUMES: This is the magic. 
-    # It maps your local folders to the paths the Python script expects.
+      - PYTHONUNBUFFERED=1  # Forces logs to show up in real-time
     volumes:
-      - ../saga-core/prompts:/saga/prompts      # Maps persona text
-      - ../saga-core/static:/app/static         # Maps the Web UI files
-      - ../saga-core/saga_server.py:/app/saga_server.py # Maps the code itself
-      - ../saga-core/memory:/saga/memory
+      - ../saga-core/prompts:/saga/prompts                # Persona/System prompts
+      - ../saga-core/static:/app/static                   # Web UI (index.html, styles)
+      - ../saga-core/saga_server.py:/app/saga_server.py   # The actual Python logic
+      - ../saga-core/memory:/saga/memory                  # Memory stones and PDF uploads
     depends_on:
       - saga-ollama
 
@@ -26,7 +24,5 @@ services:
     image: ollama/ollama:latest
     container_name: saga-ollama
     restart: unless-stopped
-    # PERSISTENCE: This ensures that when you download Llama3, 
-    # it stays on your hard drive even if the container stops.
     volumes:
-      - ../ollama/models:/root/.ollama
+      - ../ollama/models:/root/.ollama                    # Keeps downloaded AI models safe

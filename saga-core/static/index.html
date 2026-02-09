@@ -35,10 +35,16 @@
         }
 
         .message {
-            max-width: 90%;
+            max-width: 95%;
             padding: 5px 10px;
-            white-space: pre-wrap;
+            white-space: pre-wrap; /* Preserves your email formatting */
+            word-wrap: break-word;
+            line-height: 1.5;
         }
+
+        /* Removes extra margins from Markdown paragraphs */
+        .message p { margin: 0 0 10px 0; }
+        .message p:last-child { margin-bottom: 0; }
 
         .user {
             color: #7aa2f7;
@@ -54,7 +60,6 @@
         }
         .assistant::before { content: "Saga: "; font-weight: bold; color: #bb9af7; }
 
-        /* Thinking Indicator */
         #thinking {
             display: none;
             color: #565f89;
@@ -66,10 +71,22 @@
             padding: 20px;
             border-top: 1px solid #333;
             display: flex;
+            align-items: center;
             background: #0f0f12;
         }
 
-        input {
+        #upload-label {
+            cursor: pointer;
+            color: #565f89;
+            padding-right: 15px;
+            font-weight: bold;
+            font-size: 1.2em;
+            transition: color 0.3s;
+        }
+        #upload-label:hover { color: #e0af68; }
+        #file-input { display: none; }
+
+        input[type="text"] {
             flex: 1;
             background: transparent;
             border: none;
@@ -79,7 +96,6 @@
             outline: none;
         }
 
-        /* The Gold Consensus Box */
         #consensus-box {
             background: #2e2a1e;
             border: 1px solid #e0af68;
@@ -93,10 +109,11 @@
             background: #e0af68;
             color: #000;
             border: none;
-            padding: 5px 15px;
+            padding: 8px 20px;
             margin: 5px;
             cursor: pointer;
             font-weight: bold;
+            font-family: inherit;
         }
     </style>
 </head>
@@ -111,40 +128,54 @@
 
         <div id="consensus-box">
             <div id="consensus-text">Shall I scribe this tradition to the hearth?</div>
-            <button class="scribe-btn" onclick="confirmConsensus(true)">SCRIBE</button>
-            <button class="scribe-btn" style="background:#444; color:#ccc" onclick="confirmConsensus(false)">DISMISS</button>
+            <div style="margin-top: 10px;">
+                <button class="scribe-btn" onclick="confirmAction(true)">SCRIBE</button>
+                <button class="scribe-btn" style="background:#444; color:#ccc" onclick="confirmAction(false)">DISMISS</button>
+            </div>
         </div>
 
         <div id="input-area">
-            <span>> </span>
+            <label for="file-input" id="upload-label" title="Upload a Scroll (PDF)">[+]</label>
+            <input type="file" id="file-input" accept=".pdf" onchange="uploadFile()">
+            <span>&gt;&nbsp;</span>
             <input type="text" id="user-input" autofocus onkeypress="if(event.key === 'Enter') sendMessage()">
         </div>
     </div>
 
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
     const chatContainer = document.getElementById('chat-container');
     const thinkingIndicator = document.getElementById('thinking');
     const consensusBox = document.getElementById('consensus-box');
     const consensusText = document.getElementById('consensus-text');
-    
-    let pendingText = "";
-    let currentIntent = ""; // Track if we are scribing Consensus or a New Project
+    const userInput = document.getElementById('user-input');
 
+    let pendingValue = "";
+    let currentIntent = "";
+
+    // CLEANED UP: Only one version of this function exists now
     function appendMessage(role, text) {
         const msgDiv = document.createElement('div');
         msgDiv.className = `message ${role}`;
-        msgDiv.innerText = text;
+        
+        if (role === 'assistant') {
+            // Let 'marked' handle the AI response for bolding/lists
+            msgDiv.innerHTML = marked.parse(text);
+        } else {
+            // Keep user input as plain text for security/email formatting
+            msgDiv.textContent = text;
+        }
+        
         chatContainer.appendChild(msgDiv);
         chatContainer.scrollTop = chatContainer.scrollHeight;
     }
 
     async function sendMessage() {
-        const input = document.getElementById('user-input');
-        const text = input.value.trim();
-        if (!text) return;
+        const text = userInput.value; 
+        if (!text.trim()) return;
 
         appendMessage('user', text);
-        input.value = '';
+        userInput.value = '';
         consensusBox.style.display = 'none';
         thinkingIndicator.style.display = 'block';
 
@@ -162,17 +193,16 @@
                 appendMessage('assistant', data.message.content);
             }
 
-            // --- Handle Intent Logic ---
             if (data.intent === "PENDING_CONSENSUS") {
                 currentIntent = "CONSENSUS";
-                pendingText = text;
+                pendingValue = text;
                 consensusText.innerText = "Shall I scribe this tradition to the hearth?";
                 consensusBox.style.display = 'block';
-            } 
+            }
             else if (data.intent === "NEW_PROJECT_SUGGESTION") {
                 currentIntent = "NEW_PROJECT";
-                pendingText = data.suggested_project;
-                consensusText.innerText = `I sense a new saga beginning: "${pendingText}". Shall I found a new project scroll?`;
+                pendingValue = data.suggested_project;
+                consensusText.innerText = `I sense a new saga beginning: "${pendingValue}". Shall I found a new project scroll?`;
                 consensusBox.style.display = 'block';
             }
 
@@ -182,16 +212,53 @@
         }
     }
 
-    async function confirmConsensus(shouldSave) {
+    async function uploadFile() {
+        const fileInput = document.getElementById('file-input');
+        const file = fileInput.files[0];
+        if (!file) return;
+
+        appendMessage('assistant', `*Saga takes the scroll: ${file.name}...*`);
+        thinkingIndicator.style.display = 'block';
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        if (currentIntent === "NEW_PROJECT") {
+            formData.append('project', pendingValue);
+        }
+
+        try {
+            const response = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await response.json();
+            thinkingIndicator.style.display = 'none';
+
+            if (data.success) {
+                appendMessage('assistant', `I have read the scroll. It speaks of: ${data.summary}`);
+                appendMessage('assistant', "*The wisdom has been etched into the project memory.*");
+            } else {
+                appendMessage('assistant', `*The scroll is unreadable: ${data.error}*`);
+            }
+        } catch (err) {
+            thinkingIndicator.style.display = 'none';
+            appendMessage('assistant', "*The wind blew the scroll away (Upload failed).*");
+        }
+        fileInput.value = '';
+    }
+
+    async function confirmAction(shouldSave) {
         consensusBox.style.display = 'none';
         if (!shouldSave) {
-            pendingText = "";
+            pendingValue = "";
             currentIntent = "";
             return;
         }
 
-        let endpoint = currentIntent === "NEW_PROJECT" ? '/api/create-project' : '/api/save-consensus';
-        let payload = currentIntent === "NEW_PROJECT" ? { name: pendingText } : { text: pendingText };
+        const endpoint = currentIntent === "NEW_PROJECT" ? '/api/create-project' : '/api/save-consensus';
+        const payload = currentIntent === "NEW_PROJECT" ? { name: pendingValue } : { text: pendingValue };
 
         try {
             const response = await fetch(endpoint, {
@@ -201,9 +268,9 @@
             });
 
             if (response.ok) {
-                let confirmation = currentIntent === "NEW_PROJECT" 
-                    ? `*A new scroll has been prepared for the "${pendingText}" project.*`
-                    : `*It is done. "${pendingText}" is etched into the stone.*`;
+                const confirmation = currentIntent === "NEW_PROJECT"
+                    ? `*A new scroll has been prepared for the "${pendingValue}" project.*`
+                    : `*It is done. "${pendingValue}" is etched into the stone.*`;
                 appendMessage('assistant', confirmation);
             } else {
                 appendMessage('assistant', "*The ink has run dry... (Error saving)*");
@@ -211,8 +278,8 @@
         } catch (err) {
             appendMessage('assistant', "*The connection to the archive is broken.*");
         }
-        
-        pendingText = "";
+
+        pendingValue = "";
         currentIntent = "";
     }
 </script>
