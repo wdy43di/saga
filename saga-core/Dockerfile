@@ -2,22 +2,30 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install dependencies
-RUN pip install --no-cache-dir flask requests
-# ... existing pip installs ...
-RUN pip install --no-cache-dir flask requests nltk
+# 1. Install system dependencies (needed for some python wheels)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc python3-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-# Explicitly download all required grammar components to the correct path
-RUN python -m nltk.downloader -d /usr/local/share/nltk_data punkt punkt_tab averaged_perceptron_tagger averaged_perceptron_tagger_eng
-# Installing RAG
-RUN pip install --no-cache-dir flask requests nltk pypdf
-# We create the directories, but we WON'T copy the files yet
-# We want the volumes in docker-compose to handle the "live" code
+# 2. Copy and install Python requirements
+# Doing this before copying code allows Docker to cache the layers
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# 3. Download NLTK data to a central location
+RUN python -m nltk.downloader -d /usr/local/share/nltk_data \
+    punkt \
+    punkt_tab \
+    averaged_perceptron_tagger \
+    averaged_perceptron_tagger_eng
+
+# 4. Set up the hearth structure
 RUN mkdir -p /saga/prompts /saga/memory /app/static
 
-# Force logs to show up in terminal
+# 5. Environment & Networking
 ENV PYTHONUNBUFFERED=1
-
 EXPOSE 8000
 
+# Note: Code and memories are mounted via volumes in docker-compose 
+# for fluidity during development/migration.
 CMD ["python", "saga_server.py"]

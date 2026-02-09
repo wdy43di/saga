@@ -23,6 +23,7 @@ services:
   saga-ollama:
     image: ollama/ollama:latest
     container_name: saga-ollama
-    restart: unless-stopped
     volumes:
-      - ../ollama/models:/root/.ollama                    # Keeps downloaded AI models safe
+      - ../ollama:/root/.ollama
+    ports:
+      - "11434:11434"

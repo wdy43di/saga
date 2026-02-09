@@ -5,24 +5,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Saga | Hearthkeeper</title>
     <style>
+        :root {
+            --flicker-speed: 8s;
+            --smoke-opacity: 0;
+            --hearth-color: #e0af68;
+        }
+
         body {
             background: #0f0f12;
             color: #d1d1e0;
             font-family: 'Courier New', Courier, monospace;
             margin: 0;
             display: flex;
-            justify-content: center;
             height: 100vh;
+            overflow: hidden;
         }
 
+        /* Terminal is now steady and dark */
         #terminal {
-            width: 100%;
-            max-width: 800px;
+            flex: 1;
             display: flex;
             flex-direction: column;
-            border-left: 1px solid #333;
             border-right: 1px solid #333;
-            background: #121217;
+            background: #0f0f12;
         }
 
         #chat-container {
@@ -34,22 +39,106 @@
             gap: 20px;
         }
 
+        #mind-sidebar {
+            width: 280px;
+            background: #0a0a0d;
+            padding: 20px;
+            font-size: 0.85em;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        /* --- NEW: Hearth Status Orb --- */
+        #hearth-status-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid #222;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+
+        #hearth-orb {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--hearth-color);
+            box-shadow: 0 0 10px var(--hearth-color);
+            animation: hearth-pulse var(--flicker-speed) infinite ease-in-out;
+        }
+
+        @keyframes hearth-pulse {
+            0% { transform: scale(1); opacity: 0.6; }
+            50% { transform: scale(1.25); opacity: 1; box-shadow: 0 0 15px var(--hearth-color); }
+            100% { transform: scale(1); opacity: 0.6; }
+        }
+
+        /* The Smoke Effect (Visible when RAM > 85%) */
+        #mind-sidebar::after {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: radial-gradient(circle at center, rgba(100,100,100,0.2) 0%, transparent 70%);
+            opacity: var(--smoke-opacity);
+            pointer-events: none;
+            animation: drift 4s infinite linear;
+            z-index: 10;
+        }
+
+        @keyframes drift {
+            0% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-10px) scale(1.05); }
+            100% { transform: translateY(0) scale(1); }
+        }
+
+        .sidebar-section {
+            color: #565f89;
+            border-bottom: 1px solid #222;
+            padding-bottom: 5px;
+            font-weight: bold;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            font-size: 0.8em;
+            margin-top: 10px;
+        }
+
+        .memory-item { color: #bb9af7; font-size: 0.9em; margin-bottom: 8px; line-height: 1.4; }
+        #active-project { color: #e0af68; font-weight: bold; }
+
+        .story-link {
+            color: #565f89;
+            cursor: pointer;
+            padding: 4px 5px;
+            display: block;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-size: 0.75em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-left: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+        .story-link:hover {
+            color: #e0af68;
+            border-left: 2px solid #e0af68;
+            background: rgba(224, 175, 104, 0.05);
+        }
+
         .message {
             max-width: 95%;
             padding: 5px 10px;
-            white-space: pre-wrap; /* Preserves your email formatting */
+            white-space: pre-wrap;
             word-wrap: break-word;
             line-height: 1.5;
         }
 
-        /* Removes extra margins from Markdown paragraphs */
-        .message p { margin: 0 0 10px 0; }
-        .message p:last-child { margin-bottom: 0; }
-
-        .user {
-            color: #7aa2f7;
-            align-self: flex-start;
-        }
+        .user { color: #7aa2f7; align-self: flex-start; }
         .user::before { content: "> jschreck: "; font-weight: bold; }
 
         .assistant {
@@ -62,31 +151,28 @@
 
         #thinking {
             display: none;
-            color: #565f89;
+            color: #bb9af7;
             font-style: italic;
-            padding: 10px 20px;
+            padding: 15px 20px;
+            letter-spacing: 2px;
+            animation: pulse-text 2s infinite;
+        }
+
+        @keyframes pulse-text {
+            0% { opacity: 0.4; }
+            50% { opacity: 1; text-shadow: 0 0 8px #bb9af7; }
+            100% { opacity: 0.4; }
         }
 
         #input-area {
             padding: 20px;
             border-top: 1px solid #333;
             display: flex;
-            align-items: center;
+            align-items: flex-end;
             background: #0f0f12;
         }
 
-        #upload-label {
-            cursor: pointer;
-            color: #565f89;
-            padding-right: 15px;
-            font-weight: bold;
-            font-size: 1.2em;
-            transition: color 0.3s;
-        }
-        #upload-label:hover { color: #e0af68; }
-        #file-input { display: none; }
-
-        input[type="text"] {
+        #user-input {
             flex: 1;
             background: transparent;
             border: none;
@@ -94,7 +180,19 @@
             font-family: inherit;
             font-size: 1.1em;
             outline: none;
+            resize: none;
+            padding: 0;
+            margin: 0;
+            line-height: 1.5;
+            box-sizing: border-box;
+            min-height: 1.5em;
+            max-height: 400px;
+            overflow-y: auto;
         }
+
+        #upload-label { cursor: pointer; color: #565f89; padding-right: 15px; font-weight: bold; font-size: 1.2em; }
+        #upload-label:hover { color: #e0af68; }
+        #file-input { display: none; }
 
         #consensus-box {
             background: #2e2a1e;
@@ -135,12 +233,29 @@
         </div>
 
         <div id="input-area">
-            <label for="file-input" id="upload-label" title="Upload a Scroll (PDF)">[+]</label>
-            <input type="file" id="file-input" accept=".pdf" onchange="uploadFile()">
+            <label for="file-input" id="upload-label" title="Upload a Scroll">[+]</label>
+            <input type="file" id="file-input" onchange="uploadFile()">
             <span>&gt;&nbsp;</span>
-            <input type="text" id="user-input" autofocus onkeypress="if(event.key === 'Enter') sendMessage()">
+            <textarea id="user-input" rows="1" autofocus placeholder="Speak to the hearth..."></textarea>
         </div>
     </div>
+
+<div id="mind-sidebar">
+    <div id="hearth-status-container">
+        <div id="hearth-orb"></div>
+        <span style="font-size: 0.75em; letter-spacing: 1px; color: #565f89; font-weight: bold;">HEARTH STATUS</span>
+    </div>
+
+    <div class="sidebar-section">ACTIVE SAGA</div>
+    <div id="active-project" class="memory-item">None</div>
+    <button class="scribe-btn" style="width:100%; font-size: 0.75em; background: #1a1b26; color: #7aa2f7; border: 1px solid #7aa2f7; margin-top: 5px;" onclick="startNewChat()">+ NEW STORY</button>
+
+    <div class="sidebar-section">ETERNAL MEMORIES</div>
+    <div id="eternal-list"></div>
+
+    <div class="sidebar-section">PAST STORIES</div>
+    <div id="thread-list" style="max-height: 400px; overflow-y: auto;"></div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
@@ -149,29 +264,107 @@
     const consensusBox = document.getElementById('consensus-box');
     const consensusText = document.getElementById('consensus-text');
     const userInput = document.getElementById('user-input');
+    const activeProjectEl = document.getElementById('active-project');
+    const eternalListEl = document.getElementById('eternal-list');
+    const threadListEl = document.getElementById('thread-list');
+    const hearthOrb = document.getElementById('hearth-orb');
 
     let pendingValue = "";
     let currentIntent = "";
 
-    // CLEANED UP: Only one version of this function exists now
+    userInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+            this.style.height = 'auto';
+        }
+    });
+
+    userInput.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = (this.scrollHeight) + 'px';
+    });
+
     function appendMessage(role, text) {
         const msgDiv = document.createElement('div');
         msgDiv.className = `message ${role}`;
-        
         if (role === 'assistant') {
-            // Let 'marked' handle the AI response for bolding/lists
             msgDiv.innerHTML = marked.parse(text);
         } else {
-            // Keep user input as plain text for security/email formatting
             msgDiv.textContent = text;
         }
-        
         chatContainer.appendChild(msgDiv);
         chatContainer.scrollTop = chatContainer.scrollHeight;
     }
 
+    async function updateMind() {
+        try {
+            const response = await fetch('/api/mind');
+            const data = await response.json();
+
+            activeProjectEl.innerText = data.active_project.toUpperCase();
+
+            // 1. Mechanical Sympathy (Pulse & Heat)
+            let speed = 8 - (data.stress / 15);
+            speed = Math.max(0.4, speed);
+            document.documentElement.style.setProperty('--flicker-speed', `${speed}s`);
+
+            // Smoke effect on high RAM/CPU
+            let smoke = data.stress > 80 ? (data.stress - 80) / 20 : 0;
+            document.documentElement.style.setProperty('--smoke-opacity', smoke);
+
+            // Change Orb Color based on Stress
+            if (data.stress > 85) {
+                document.documentElement.style.setProperty('--hearth-color', '#ff5555');
+                thinkingIndicator.style.color = "#ff5555";
+            } else {
+                document.documentElement.style.setProperty('--hearth-color', '#e0af68');
+                thinkingIndicator.style.color = "#bb9af7";
+            }
+
+            // 2. Eternal Memories
+            eternalListEl.innerHTML = "";
+            data.eternal_memories.forEach(mem => {
+                const div = document.createElement('div');
+                div.className = "memory-item";
+                div.innerText = "- " + mem;
+                eternalListEl.appendChild(div);
+            });
+
+            // 3. Past Stories
+            const threadRes = await fetch('/api/threads');
+            const threads = await threadRes.json();
+            threadListEl.innerHTML = "";
+            threads.forEach(t => {
+                const a = document.createElement('a');
+                a.className = "story-link";
+                const cleanDisplay = t.display.split('--').join(' | ').replace(/_/g, ' ');
+                a.innerText = "📜 " + cleanDisplay;
+                a.onclick = () => loadThread(t.id);
+                threadListEl.appendChild(a);
+            });
+
+        } catch (err) { console.error("Mind link failed:", err); }
+    }
+
+    async function loadThread(threadId) {
+        if (confirm("Recall this story and clear the current fire?")) {
+            const res = await fetch(`/api/load-thread/${threadId}`);
+            const data = await res.json();
+            if (data.success) {
+                chatContainer.innerHTML = "";
+                data.history.forEach(msg => {
+                    appendMessage(msg.role === 'user' ? 'user' : 'assistant', msg.content);
+                });
+            }
+        }
+    }
+
+    setInterval(updateMind, 4000);
+    updateMind();
+
     async function sendMessage() {
-        const text = userInput.value; 
+        const text = userInput.value;
         if (!text.trim()) return;
 
         appendMessage('user', text);
@@ -185,27 +378,18 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ messages: [{ role: 'user', content: text }] })
             });
-
             const data = await response.json();
             thinkingIndicator.style.display = 'none';
 
-            if (data.message && data.message.content) {
-                appendMessage('assistant', data.message.content);
-            }
+            if (data.message) appendMessage('assistant', data.message.content);
 
-            if (data.intent === "PENDING_CONSENSUS") {
-                currentIntent = "CONSENSUS";
-                pendingValue = text;
-                consensusText.innerText = "Shall I scribe this tradition to the hearth?";
-                consensusBox.style.display = 'block';
-            }
-            else if (data.intent === "NEW_PROJECT_SUGGESTION") {
+            if (data.intent === "NEW_PROJECT_SUGGESTION") {
                 currentIntent = "NEW_PROJECT";
                 pendingValue = data.suggested_project;
                 consensusText.innerText = `I sense a new saga beginning: "${pendingValue}". Shall I found a new project scroll?`;
                 consensusBox.style.display = 'block';
             }
-
+            updateMind();
         } catch (err) {
             thinkingIndicator.style.display = 'none';
             appendMessage('assistant', "The connection to the hearth has gone cold.");
@@ -223,64 +407,49 @@
         const formData = new FormData();
         formData.append('file', file);
 
-        if (currentIntent === "NEW_PROJECT") {
-            formData.append('project', pendingValue);
-        }
-
         try {
-            const response = await fetch('/api/upload', {
-                method: 'POST',
-                body: formData
-            });
-
+            const response = await fetch('/api/upload', { method: 'POST', body: formData });
             const data = await response.json();
             thinkingIndicator.style.display = 'none';
-
             if (data.success) {
-                appendMessage('assistant', `I have read the scroll. It speaks of: ${data.summary}`);
-                appendMessage('assistant', "*The wisdom has been etched into the project memory.*");
+                appendMessage('assistant', `I have read the scroll. ${data.summary}`);
             } else {
-                appendMessage('assistant', `*The scroll is unreadable: ${data.error}*`);
+                appendMessage('assistant', `*The scroll is unreadable.*`);
             }
         } catch (err) {
             thinkingIndicator.style.display = 'none';
-            appendMessage('assistant', "*The wind blew the scroll away (Upload failed).*");
+            appendMessage('assistant', "*Upload failed.*");
         }
         fileInput.value = '';
     }
 
+    async function startNewChat() {
+        if (confirm("End this story and archive it?")) {
+            await fetch('/api/new-chat', { method: 'POST' });
+            chatContainer.innerHTML = '<div class="message assistant">The fire is reset. A new story begins.</div>';
+            activeProjectEl.innerText = "NONE";
+            updateMind();
+        }
+    }
+
     async function confirmAction(shouldSave) {
         consensusBox.style.display = 'none';
-        if (!shouldSave) {
-            pendingValue = "";
-            currentIntent = "";
-            return;
-        }
+        if (!shouldSave) return;
 
         const endpoint = currentIntent === "NEW_PROJECT" ? '/api/create-project' : '/api/save-consensus';
         const payload = currentIntent === "NEW_PROJECT" ? { name: pendingValue } : { text: pendingValue };
 
         try {
-            const response = await fetch(endpoint, {
+            await fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
-
-            if (response.ok) {
-                const confirmation = currentIntent === "NEW_PROJECT"
-                    ? `*A new scroll has been prepared for the "${pendingValue}" project.*`
-                    : `*It is done. "${pendingValue}" is etched into the stone.*`;
-                appendMessage('assistant', confirmation);
-            } else {
-                appendMessage('assistant', "*The ink has run dry... (Error saving)*");
-            }
+            appendMessage('assistant', "*It is etched into the stone.*");
+            updateMind();
         } catch (err) {
-            appendMessage('assistant', "*The connection to the archive is broken.*");
+            appendMessage('assistant', "*Error saving to archive.*");
         }
-
-        pendingValue = "";
-        currentIntent = "";
     }
 </script>
 </body>
