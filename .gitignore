@@ -1,3 +1,6 @@
+# Trees to ignore
+saga_env/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
@@ -206,7 +209,7 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 # --- Ignore the Big Stuff ---
-ollama/models/
+ollama/
 # Ignore your private SSH keys!
 ollama/id_ed25519*
 
@@ -223,3 +226,6 @@ saga-core/memory/**
 
 *.tar.gz
 *.tar.gz
+# Chroma specific database files
+*.sqlite3
+*.sqlite3-journal

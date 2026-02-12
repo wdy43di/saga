@@ -3,3 +3,6 @@ requests
 psutil
 nltk
 pypdf
+langchain
+chromadb
+langchain-community

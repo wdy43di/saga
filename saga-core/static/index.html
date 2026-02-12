@@ -3,454 +3,289 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Saga | Hearthkeeper</title>
+    <title>Saga | The Hearth</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
     <style>
         :root {
-            --flicker-speed: 8s;
-            --smoke-opacity: 0;
-            --hearth-color: #e0af68;
+            /* THEME COLORS */
+            --bg-color: #0f0f12;
+            --sidebar-bg: #08080a;
+            --text-primary: #a9b1d6;
+            --text-dim: #565f89;
+            
+            /* DYNAMIC VARIABLES */
+            --accent-color: #e0af68; 
+            --accent-glow: rgba(224, 175, 104, 0.15);
+            --user-color: #7aa2f7;
+            
+            /* ATMOSPHERE (Updated for visibility) */
+            --scanline-opacity: 0.15;   /* Higher starting visibility */
+            --pulse-speed: 4s;          /* Heartbeat speed */
         }
 
+        body.mode-ragnarok {
+            --accent-color: #ff5555;
+            --accent-glow: rgba(255, 85, 85, 0.15);
+            --user-color: #c0caf5;
+        }
+
+        /* --- THE SMOKE (Atmosphere Overlay) --- 
+           This creates the visual 'fog' and scanlines. 
+           z-index: 9999 ensures it covers everything.
+        */
+        body::after {
+            content: "";
+            position: fixed; /* Fixed ensures it stays put during scroll */
+            top: 0; left: 0; width: 100%; height: 100%;
+            /* Thickening the lines for better visibility on high-res screens */
+            background: linear-gradient(
+                rgba(18, 16, 16, 0) 50%, 
+                rgba(0, 0, 0, 0.3) 50%), 
+                linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+            background-size: 100% 4px, 3px 100%;
+            pointer-events: none; /* Allows you to click 'through' the smoke */
+            z-index: 9999;
+            opacity: var(--scanline-opacity);
+            transition: opacity 1s ease;
+        }
+
+        /* CORE LAYOUT */
+        * { box-sizing: border-box; }
         body {
-            background: #0f0f12;
-            color: #d1d1e0;
-            font-family: 'Courier New', Courier, monospace;
             margin: 0;
-            display: flex;
+            background: var(--bg-color);
+            color: var(--text-primary);
+            font-family: 'Fira Code', monospace;
             height: 100vh;
+            display: flex;
             overflow: hidden;
         }
 
-        /* Terminal is now steady and dark */
-        #terminal {
+        /* SIDEBAR */
+        #sidebar {
+            width: 280px;
+            background: var(--sidebar-bg);
+            border-right: 1px solid #222;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            z-index: 10;
+        }
+
+        .status-box {
+            border: 1px solid #333;
+            background: rgba(255,255,255,0.02);
+            padding: 15px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        #hearth-orb {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--accent-color);
+            box-shadow: 0 0 15px var(--accent-color);
+            animation: pulse var(--pulse-speed) infinite ease-in-out;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 0.7; }
+            50% { transform: scale(1.4); opacity: 1; box-shadow: 0 0 25px var(--accent-color); }
+            100% { transform: scale(1); opacity: 0.7; }
+        }
+
+        .label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--text-dim);
+            margin-bottom: 8px;
+        }
+
+        select, .btn {
+            background: #111;
+            color: var(--accent-color);
+            border: 1px solid #333;
+            padding: 10px;
+            width: 100%;
+            font-family: inherit;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            cursor: pointer;
+        }
+
+        /* CHAT AREA */
+        #main-stage {
             flex: 1;
             display: flex;
             flex-direction: column;
-            border-right: 1px solid #333;
-            background: #0f0f12;
         }
 
-        #chat-container {
+        #chat-history {
             flex: 1;
             overflow-y: auto;
-            padding: 20px;
+            padding: 40px;
             display: flex;
             flex-direction: column;
             gap: 20px;
         }
 
-        #mind-sidebar {
-            width: 280px;
-            background: #0a0a0d;
-            padding: 20px;
-            font-size: 0.85em;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            overflow-y: auto;
-            position: relative;
-        }
-
-        /* --- NEW: Hearth Status Orb --- */
-        #hearth-status-container {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 12px;
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid #222;
-            border-radius: 4px;
-            margin-bottom: 10px;
-        }
-
-        #hearth-orb {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: var(--hearth-color);
-            box-shadow: 0 0 10px var(--hearth-color);
-            animation: hearth-pulse var(--flicker-speed) infinite ease-in-out;
-        }
-
-        @keyframes hearth-pulse {
-            0% { transform: scale(1); opacity: 0.6; }
-            50% { transform: scale(1.25); opacity: 1; box-shadow: 0 0 15px var(--hearth-color); }
-            100% { transform: scale(1); opacity: 0.6; }
-        }
-
-        /* The Smoke Effect (Visible when RAM > 85%) */
-        #mind-sidebar::after {
-            content: "";
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: radial-gradient(circle at center, rgba(100,100,100,0.2) 0%, transparent 70%);
-            opacity: var(--smoke-opacity);
-            pointer-events: none;
-            animation: drift 4s infinite linear;
-            z-index: 10;
-        }
-
-        @keyframes drift {
-            0% { transform: translateY(0) scale(1); }
-            50% { transform: translateY(-10px) scale(1.05); }
-            100% { transform: translateY(0) scale(1); }
-        }
-
-        .sidebar-section {
-            color: #565f89;
-            border-bottom: 1px solid #222;
-            padding-bottom: 5px;
-            font-weight: bold;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-            font-size: 0.8em;
-            margin-top: 10px;
-        }
-
-        .memory-item { color: #bb9af7; font-size: 0.9em; margin-bottom: 8px; line-height: 1.4; }
-        #active-project { color: #e0af68; font-weight: bold; }
-
-        .story-link {
-            color: #565f89;
-            cursor: pointer;
-            padding: 4px 5px;
-            display: block;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            font-size: 0.75em;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            border-left: 2px solid transparent;
-            transition: all 0.3s ease;
-        }
-        .story-link:hover {
-            color: #e0af68;
-            border-left: 2px solid #e0af68;
-            background: rgba(224, 175, 104, 0.05);
-        }
-
         .message {
-            max-width: 95%;
-            padding: 5px 10px;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            line-height: 1.5;
+            max-width: 850px;
+            line-height: 1.6;
+            animation: fadeIn 0.3s ease;
         }
 
-        .user { color: #7aa2f7; align-self: flex-start; }
-        .user::before { content: "> jschreck: "; font-weight: bold; }
+        .message.assistant { border-left: 2px solid var(--accent-color); padding-left: 20px; }
+        .message.user { color: var(--user-color); }
+        .message.user::before { content: ">> "; opacity: 0.5; }
 
-        .assistant {
-            color: #e0af68;
-            align-self: flex-start;
-            border-left: 2px solid #444;
-            padding-left: 15px;
-        }
-        .assistant::before { content: "Saga: "; font-weight: bold; color: #bb9af7; }
-
-        #thinking {
-            display: none;
-            color: #bb9af7;
-            font-style: italic;
-            padding: 15px 20px;
-            letter-spacing: 2px;
-            animation: pulse-text 2s infinite;
-        }
-
-        @keyframes pulse-text {
-            0% { opacity: 0.4; }
-            50% { opacity: 1; text-shadow: 0 0 8px #bb9af7; }
-            100% { opacity: 0.4; }
-        }
-
-        #input-area {
-            padding: 20px;
-            border-top: 1px solid #333;
+        /* INPUT AREA */
+        #input-dock { padding: 20px 40px; border-top: 1px solid #222; }
+        .input-wrapper {
             display: flex;
-            align-items: flex-end;
-            background: #0f0f12;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid #333;
+            padding: 15px;
+            border-radius: 4px;
         }
 
-        #user-input {
+        textarea {
             flex: 1;
             background: transparent;
             border: none;
-            color: #7aa2f7;
+            color: var(--text-primary);
             font-family: inherit;
-            font-size: 1.1em;
-            outline: none;
             resize: none;
-            padding: 0;
-            margin: 0;
-            line-height: 1.5;
-            box-sizing: border-box;
-            min-height: 1.5em;
-            max-height: 400px;
-            overflow-y: auto;
+            outline: none;
         }
 
-        #upload-label { cursor: pointer; color: #565f89; padding-right: 15px; font-weight: bold; font-size: 1.2em; }
-        #upload-label:hover { color: #e0af68; }
-        #file-input { display: none; }
-
-        #consensus-box {
-            background: #2e2a1e;
-            border: 1px solid #e0af68;
-            padding: 15px;
-            margin: 10px 20px;
+        #thinking-indicator {
+            padding: 0 40px 10px;
+            font-size: 0.75rem;
+            color: var(--accent-color);
             display: none;
-            text-align: center;
-        }
-
-        .scribe-btn {
-            background: #e0af68;
-            color: #000;
-            border: none;
-            padding: 8px 20px;
-            margin: 5px;
-            cursor: pointer;
-            font-weight: bold;
-            font-family: inherit;
         }
     </style>
 </head>
 <body>
 
-    <div id="terminal">
-        <div id="chat-container">
-            <div class="message assistant">The fire crackles. The stones are ready for your words.</div>
-        </div>
-
-        <div id="thinking">Saga is casting the runes...</div>
-
-        <div id="consensus-box">
-            <div id="consensus-text">Shall I scribe this tradition to the hearth?</div>
-            <div style="margin-top: 10px;">
-                <button class="scribe-btn" onclick="confirmAction(true)">SCRIBE</button>
-                <button class="scribe-btn" style="background:#444; color:#ccc" onclick="confirmAction(false)">DISMISS</button>
+    <aside id="sidebar">
+        <div class="status-box">
+            <div id="hearth-orb"></div>
+            <div>
+                <div class="label" style="margin:0;">SYSTEM LOAD</div>
+                <div id="stress-pct" style="font-size:0.8rem; color:#888;">0%</div>
             </div>
         </div>
 
-        <div id="input-area">
-            <label for="file-input" id="upload-label" title="Upload a Scroll">[+]</label>
-            <input type="file" id="file-input" onchange="uploadFile()">
-            <span>&gt;&nbsp;</span>
-            <textarea id="user-input" rows="1" autofocus placeholder="Speak to the hearth..."></textarea>
+        <div class="label">ACTIVE MODE</div>
+        <select id="mode-select" onchange="changeMode()">
+            <option value="standard">Standard Engine</option>
+            <option value="ragnarok">Ragnarok DM</option>
+        </select>
+
+        <div style="flex:1"></div>
+        <div class="label">MEMORY LOG</div>
+        <div id="memory-log" style="font-size:0.75rem; color:#555; font-style:italic;">Scanning...</div>
+    </aside>
+
+    <main id="main-stage">
+        <div id="chat-history">
+            <div class="message assistant">The fire is lit. I am listening to the breath of the system.</div>
         </div>
-    </div>
+        <div id="thinking-indicator">Saga is channeling the runes...</div>
+        <div id="input-dock">
+            <div class="input-wrapper">
+                <textarea id="user-input" rows="1" placeholder="Type a message..."></textarea>
+            </div>
+        </div>
+    </main>
 
-<div id="mind-sidebar">
-    <div id="hearth-status-container">
-        <div id="hearth-orb"></div>
-        <span style="font-size: 0.75em; letter-spacing: 1px; color: #565f89; font-weight: bold;">HEARTH STATUS</span>
-    </div>
+    <script>
+        const chat = document.getElementById('chat-history');
+        const input = document.getElementById('user-input');
+        const orb = document.getElementById('hearth-orb');
+        const stressTxt = document.getElementById('stress-pct');
 
-    <div class="sidebar-section">ACTIVE SAGA</div>
-    <div id="active-project" class="memory-item">None</div>
-    <button class="scribe-btn" style="width:100%; font-size: 0.75em; background: #1a1b26; color: #7aa2f7; border: 1px solid #7aa2f7; margin-top: 5px;" onclick="startNewChat()">+ NEW STORY</button>
+        // --- HEARTBEAT ENGINE ---
+        async function syncSystemVitals() {
+            try {
+                const res = await fetch('/api/mind');
+                const data = await res.json();
+                
+                // Calculate Stress for Visuals
+                const stress = data.stress || 0;
+                stressTxt.textContent = `${Math.round(stress)}%`;
 
-    <div class="sidebar-section">ETERNAL MEMORIES</div>
-    <div id="eternal-list"></div>
+                // 1. SPEED UP THE HEART (Stress makes it pulse faster)
+                // 0% Stress = 4s pulse | 100% Stress = 0.4s pulse
+                let pulseSpeed = Math.max(0.4, 4 - (stress / 27));
+                document.documentElement.style.setProperty('--pulse-speed', `${pulseSpeed}s`);
 
-    <div class="sidebar-section">PAST STORIES</div>
-    <div id="thread-list" style="max-height: 400px; overflow-y: auto;"></div>
-</div>
+                // 2. STOKE THE SMOKE (Stress makes lines darker)
+                // We start at 0.15 opacity and go up to 0.70 (very smoky)
+                let grit = 0.15 + (stress / 180);
+                document.documentElement.style.setProperty('--scanline-opacity', grit);
 
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<script>
-    const chatContainer = document.getElementById('chat-container');
-    const thinkingIndicator = document.getElementById('thinking');
-    const consensusBox = document.getElementById('consensus-box');
-    const consensusText = document.getElementById('consensus-text');
-    const userInput = document.getElementById('user-input');
-    const activeProjectEl = document.getElementById('active-project');
-    const eternalListEl = document.getElementById('eternal-list');
-    const threadListEl = document.getElementById('thread-list');
-    const hearthOrb = document.getElementById('hearth-orb');
+                // 3. UPDATE MEMORY TEXT
+                document.getElementById('memory-log').textContent = data.active_project || "Standing by...";
 
-    let pendingValue = "";
-    let currentIntent = "";
-
-    userInput.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            sendMessage();
-            this.style.height = 'auto';
-        }
-    });
-
-    userInput.addEventListener('input', function() {
-        this.style.height = 'auto';
-        this.style.height = (this.scrollHeight) + 'px';
-    });
-
-    function appendMessage(role, text) {
-        const msgDiv = document.createElement('div');
-        msgDiv.className = `message ${role}`;
-        if (role === 'assistant') {
-            msgDiv.innerHTML = marked.parse(text);
-        } else {
-            msgDiv.textContent = text;
-        }
-        chatContainer.appendChild(msgDiv);
-        chatContainer.scrollTop = chatContainer.scrollHeight;
-    }
-
-    async function updateMind() {
-        try {
-            const response = await fetch('/api/mind');
-            const data = await response.json();
-
-            activeProjectEl.innerText = data.active_project.toUpperCase();
-
-            // 1. Mechanical Sympathy (Pulse & Heat)
-            let speed = 8 - (data.stress / 15);
-            speed = Math.max(0.4, speed);
-            document.documentElement.style.setProperty('--flicker-speed', `${speed}s`);
-
-            // Smoke effect on high RAM/CPU
-            let smoke = data.stress > 80 ? (data.stress - 80) / 20 : 0;
-            document.documentElement.style.setProperty('--smoke-opacity', smoke);
-
-            // Change Orb Color based on Stress
-            if (data.stress > 85) {
-                document.documentElement.style.setProperty('--hearth-color', '#ff5555');
-                thinkingIndicator.style.color = "#ff5555";
-            } else {
-                document.documentElement.style.setProperty('--hearth-color', '#e0af68');
-                thinkingIndicator.style.color = "#bb9af7";
+            } catch (e) {
+                // If server is down, stop the heart
+                orb.style.background = "#333";
+                document.documentElement.style.setProperty('--pulse-speed', '0s');
             }
+        }
 
-            // 2. Eternal Memories
-            eternalListEl.innerHTML = "";
-            data.eternal_memories.forEach(mem => {
-                const div = document.createElement('div');
-                div.className = "memory-item";
-                div.innerText = "- " + mem;
-                eternalListEl.appendChild(div);
-            });
+        // --- CHAT LOGIC ---
+        async function sendMessage() {
+            const text = input.value.trim();
+            if(!text) return;
 
-            // 3. Past Stories
-            const threadRes = await fetch('/api/threads');
-            const threads = await threadRes.json();
-            threadListEl.innerHTML = "";
-            threads.forEach(t => {
-                const a = document.createElement('a');
-                a.className = "story-link";
-                const cleanDisplay = t.display.split('--').join(' | ').replace(/_/g, ' ');
-                a.innerText = "📜 " + cleanDisplay;
-                a.onclick = () => loadThread(t.id);
-                threadListEl.appendChild(a);
-            });
+            appendMsg('user', text);
+            input.value = '';
+            document.getElementById('thinking-indicator').style.display = 'block';
 
-        } catch (err) { console.error("Mind link failed:", err); }
-    }
-
-    async function loadThread(threadId) {
-        if (confirm("Recall this story and clear the current fire?")) {
-            const res = await fetch(`/api/load-thread/${threadId}`);
-            const data = await res.json();
-            if (data.success) {
-                chatContainer.innerHTML = "";
-                data.history.forEach(msg => {
-                    appendMessage(msg.role === 'user' ? 'user' : 'assistant', msg.content);
+            try {
+                const res = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ message: text, mode: document.getElementById('mode-select').value })
                 });
+                const data = await res.json();
+                document.getElementById('thinking-indicator').style.display = 'none';
+                appendMsg('assistant', data.message.content);
+            } catch (e) {
+                appendMsg('assistant', '*Connection lost to the hearth.*');
             }
         }
-    }
 
-    setInterval(updateMind, 4000);
-    updateMind();
+        function appendMsg(role, text) {
+            const div = document.createElement('div');
+            div.className = `message ${role}`;
+            div.innerHTML = role === 'assistant' ? marked.parse(text) : text;
+            chat.appendChild(div);
+            chat.scrollTop = chat.scrollHeight;
+        }
 
-    async function sendMessage() {
-        const text = userInput.value;
-        if (!text.trim()) return;
-
-        appendMessage('user', text);
-        userInput.value = '';
-        consensusBox.style.display = 'none';
-        thinkingIndicator.style.display = 'block';
-
-        try {
-            const response = await fetch('/api/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ messages: [{ role: 'user', content: text }] })
-            });
-            const data = await response.json();
-            thinkingIndicator.style.display = 'none';
-
-            if (data.message) appendMessage('assistant', data.message.content);
-
-            if (data.intent === "NEW_PROJECT_SUGGESTION") {
-                currentIntent = "NEW_PROJECT";
-                pendingValue = data.suggested_project;
-                consensusText.innerText = `I sense a new saga beginning: "${pendingValue}". Shall I found a new project scroll?`;
-                consensusBox.style.display = 'block';
+        input.addEventListener('keydown', (e) => {
+            if(e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
             }
-            updateMind();
-        } catch (err) {
-            thinkingIndicator.style.display = 'none';
-            appendMessage('assistant', "The connection to the hearth has gone cold.");
-        }
-    }
+        });
 
-    async function uploadFile() {
-        const fileInput = document.getElementById('file-input');
-        const file = fileInput.files[0];
-        if (!file) return;
-
-        appendMessage('assistant', `*Saga takes the scroll: ${file.name}...*`);
-        thinkingIndicator.style.display = 'block';
-
-        const formData = new FormData();
-        formData.append('file', file);
-
-        try {
-            const response = await fetch('/api/upload', { method: 'POST', body: formData });
-            const data = await response.json();
-            thinkingIndicator.style.display = 'none';
-            if (data.success) {
-                appendMessage('assistant', `I have read the scroll. ${data.summary}`);
-            } else {
-                appendMessage('assistant', `*The scroll is unreadable.*`);
-            }
-        } catch (err) {
-            thinkingIndicator.style.display = 'none';
-            appendMessage('assistant', "*Upload failed.*");
-        }
-        fileInput.value = '';
-    }
-
-    async function startNewChat() {
-        if (confirm("End this story and archive it?")) {
-            await fetch('/api/new-chat', { method: 'POST' });
-            chatContainer.innerHTML = '<div class="message assistant">The fire is reset. A new story begins.</div>';
-            activeProjectEl.innerText = "NONE";
-            updateMind();
-        }
-    }
-
-    async function confirmAction(shouldSave) {
-        consensusBox.style.display = 'none';
-        if (!shouldSave) return;
-
-        const endpoint = currentIntent === "NEW_PROJECT" ? '/api/create-project' : '/api/save-consensus';
-        const payload = currentIntent === "NEW_PROJECT" ? { name: pendingValue } : { text: pendingValue };
-
-        try {
-            await fetch(endpoint, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            appendMessage('assistant', "*It is etched into the stone.*");
-            updateMind();
-        } catch (err) {
-            appendMessage('assistant', "*Error saving to archive.*");
-        }
-    }
-</script>
+        // Loop the heartbeat every 2 seconds
+        setInterval(syncSystemVitals, 2000);
+        syncSystemVitals();
+    </script>
 </body>
 </html>
