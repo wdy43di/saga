@@ -27,3 +27,15 @@ services:
       - ../ollama:/root/.ollama
     ports:
       - "11434:11434"
+    environment:
+      - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_NUM_PARALLEL=4      # Allows it to handle multiple internal tasks
+      - OLLAMA_CONTEXT_LENGTH=8192 # Gives her more "room" to remember the house layout
+    # --- ADD THIS BLOCK FOR GPU ---
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

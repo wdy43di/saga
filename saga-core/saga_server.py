@@ -82,7 +82,7 @@ def chat():
         messages.append(msg)
     messages.append({"role": "user", "content": user_text})
 
-    # 4. Talk to the Brain
+# 4. Talk to the Brain
     try:
         r = requests.post(f"{OLLAMA_URL}/api/chat", json={
             "model": MODEL,
@@ -90,13 +90,22 @@ def chat():
             "stream": False
         }, timeout=120)
         
-        reply = r.json()["message"]["content"]
-        CHAT_HISTORY.append({"role": "user", "content": user_text})
-        CHAT_HISTORY.append({"role": "assistant", "content": reply})
-        
-        return jsonify({"message": {"role": "assistant", "content": reply}})
+        # Log the raw response for debugging in docker logs
+        resp_data = r.json()
+        print(f"DEBUG OLLAMA RESP: {resp_data}")
+
+        if "message" in resp_data:
+            reply = resp_data["message"]["content"]
+            CHAT_HISTORY.append({"role": "user", "content": user_text})
+            CHAT_HISTORY.append({"role": "assistant", "content": reply})
+            return jsonify({"message": {"role": "assistant", "content": reply}})
+        else:
+            error_msg = resp_data.get("error", "Unknown Ollama Error")
+            return jsonify({"message": {"role": "assistant", "content": f"*The Scribe is confused...* ({error_msg}) shadow"}})
+
     except Exception as e:
-        return jsonify({"message": {"role": "assistant", "content": f"*The hearth flickers and dies...* ({str(e)})"}})
+        print(f"SERVER EXCEPTION: {str(e)}")
+        return jsonify({"message": {"role": "assistant", "content": f"*The hearth flickers...* ({str(e)})"}})
 
 @app.route("/api/mind", methods=["GET"])
 def get_mind():
